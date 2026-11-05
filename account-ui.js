@@ -2,7 +2,8 @@
 (function(){
  'use strict';
  const BASE='https://fortressstrikeonline.onrender.com',TOKEN='fs-account-token-v1',OWNER='fs-account-owner-v1',PROFILE='fortressstrike-profile-v1';
- let verified=false,account='',adminCode='',saveTimer=null,pendingProfile=null,saving=false,ui={};
+ let verified=false,account='',adminCode='',saveTimer=null,pendingProfile=null,saving=false,ui={},gameStarted=false,resolveGame;
+ window.fsGameReady=new Promise(resolve=>{resolveGame=resolve});
  function token(){return localStorage.getItem(TOKEN)||''}
  async function request(path,options={}){
   const headers={'Content-Type':'application/json',...(options.headers||{})};if(token())headers.Authorization='Bearer '+token();
@@ -31,23 +32,30 @@
    try{const profile=JSON.parse(local);await request('/api/profile',{method:'PUT',body:JSON.stringify({profile})})}catch(e){throw new Error('Connexion réussie mais sauvegarde initiale impossible : '+e.message)}
   }else if(previous&&previous!==data.username){localStorage.removeItem(PROFILE)}
  }
+ function finishLogin(data){
+  verified=true;account=data.username;ui.auth.style.display='none';ui.account.style.display='flex';
+  ui.username.textContent='COMPTE · '+account;ui.save.textContent='PROGRESSION SYNCHRONISÉE';
+  if(!gameStarted){gameStarted=true;resolveGame()}
+ }
  async function bootstrap(){
   ui.auth.style.display='flex';ui.error.textContent='';
   if(!token()){ui.status.textContent='Connecte-toi ou crée un compte pour jouer.';return}
   ui.status.textContent='Vérification du compte…';
   try{
-   const data=await request('/api/me');const before=localStorage.getItem(PROFILE),previous=localStorage.getItem(OWNER);
+   const data=await request('/api/me');
    await applyAccount(data);
-   const after=localStorage.getItem(PROFILE);
-   if((data.profile&&before!==after)||(!data.profile&&previous&&previous!==data.username&&before)){location.reload();return}
-   verified=true;account=data.username;ui.auth.style.display='none';ui.account.style.display='flex';ui.username.textContent='COMPTE · '+account;ui.save.textContent='PROGRESSION SYNCHRONISÉE';
+   finishLogin(data);
   }catch(err){ui.status.textContent='Connexion nécessaire.';ui.error.textContent=err.message;if(/banni|Connecte-toi/.test(err.message))localStorage.removeItem(TOKEN)}
  }
  async function signIn(mode){
   ui.error.textContent='';ui.status.textContent=mode==='login'?'Connexion…':'Création du compte…';
   const username=ui.user.value.trim(),password=ui.pass.value,email=ui.email.value.trim();
-  try{const data=await request('/api/'+mode,{method:'POST',body:JSON.stringify({username,password,email})});await applyAccount(data,data.token);location.reload()}
-  catch(err){ui.status.textContent='Connexion nécessaire.';ui.error.textContent=err.message}
+  try{
+   const data=await request('/api/'+mode,{method:'POST',body:JSON.stringify({username,password,email})});
+   await applyAccount(data,data.token);
+   if(gameStarted){location.reload();return}
+   finishLogin(data);
+  }catch(err){ui.status.textContent='Connexion nécessaire.';ui.error.textContent=err.message}
  }
  async function refreshUsers(){
   try{const data=await window.fsAccountAdminRequest('/api/admin/users');ui.list.replaceChildren();
@@ -64,7 +72,7 @@
   ui.email=node('input','','',card);ui.email.type='email';ui.email.placeholder='E-mail (création de compte uniquement)';ui.email.autocomplete='email';ui.email.maxLength=254;
   ui.pass=node('input','','',card);ui.pass.type='password';ui.pass.placeholder='Mot de passe (8 caractères minimum)';ui.pass.autocomplete='current-password';ui.pass.maxLength=128;
   const actions=node('div','fs-auth-actions','',card);node('button','fs-auth-button','SE CONNECTER',actions).onclick=()=>signIn('login');node('button','fs-auth-button','CRÉER UN COMPTE',actions).onclick=()=>signIn('register');
-  ui.error=node('p','fs-auth-error','',card);node('p','','L’e-mail est demandé à la création du compte. Les adresses temporaires connues sont refusées. La progression locale de ce navigateur sera importée lors de la création du premier compte, si elle existe.',card);
+  ui.error=node('p','fs-auth-error','',card);node('p','','L’e-mail est demandé à la création du compte. La progression locale de ce navigateur sera importée lors de la création du premier compte, si elle existe.',card);
   ui.account=node('div','fs-account-strip','',document.body);ui.username=node('span','','',ui.account);ui.save=node('span','fs-save-note','',ui.account);
   node('button','fs-auth-button','ADMIN',ui.account).onclick=()=>{ui.admin.style.display='flex'};
   node('button','fs-auth-button','DÉCONNEXION',ui.account).onclick=async()=>{try{if(pendingProfile)await flush();await request('/api/logout',{method:'POST'})}catch{}localStorage.removeItem(TOKEN);location.reload()};

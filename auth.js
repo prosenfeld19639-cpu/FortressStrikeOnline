@@ -46,9 +46,6 @@ async function api(req,res,onBan){
    if(p==='/api/register'){
     const email=String(data.email||'').trim().toLowerCase();
     if(email.length>254||!/^[a-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(email)){fail(res,400,'Adresse e-mail invalide.');return true}
-    const domain=email.split('@')[1];
-    const blocked=['drtall.com','temp-mail.org','temp-mail.io','mailinator.com','guerrillamail.com','10minutemail.com','yopmail.com','dispostable.com','getnada.com'];
-    if(blocked.some(d=>domain===d||domain.endsWith('.'+d))){fail(res,403,'Les adresses e-mail temporaires ne sont pas acceptées.');return true}
     const salt=crypto.randomBytes(16).toString('hex'),hash=(await scrypt(password,salt,64)).toString('hex');
     try{const result=await pool.query('INSERT INTO fs_users (username,salt,password_hash,email) VALUES ($1,$2,$3,$4) RETURNING id,username,banned,profile',[username,salt,hash,email]);const user=result.rows[0];reply(res,201,{token:await session(user),username:user.username,profile:null})}
     catch(e){if(e.code==='23505')fail(res,409,'Ce pseudo est déjà utilisé.');else throw e}

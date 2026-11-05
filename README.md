@@ -44,11 +44,11 @@ Le code est vérifié côté serveur. Ne le partage pas. Pour le changer, modifi
 - `account-ui.js` est une copie lisible du script déjà intégré dans `index.html` ; le serveur ne le charge pas séparément.
 - Le matchmaking reste de 40 secondes, avec deux joueurs minimum ; les salons privés restent disponibles.
 
-## Mise à jour V2 : e-mail et déconnexions
+## Mise à jour : inscription et déconnexions
 
-Les nouvelles inscriptions demandent une adresse e-mail. Une liste locale refuse les domaines temporaires connus, notamment `drtall.com` : l'inscription est refusée avant la création du compte. Les comptes déjà créés sans e-mail ne sont pas automatiquement bannis : aucune adresse n'est disponible pour les contrôler.
+La création et la connexion aux comptes ne provoquent plus de boucle d’actualisation : le jeu attend le chargement du compte et de la progression avant de démarrer. Le filtrage des domaines d’e-mails temporaires a été supprimé. Une adresse e-mail syntaxiquement valide reste demandée à la création du compte.
 
-Cette version **n'envoie pas de message de confirmation** et ne vérifie donc pas que le joueur possède l'adresse fournie. Un joueur peut saisir une autre adresse ; la liste ne couvre pas non plus tous les domaines jetables. Pour une vraie vérification, il faudra ajouter un service d'envoi de mails et un lien de confirmation. Les adresses sont enregistrées en base ; informe les joueurs de cette collecte et respecte les règles de confidentialité applicables. Aucune récupération de mot de passe par e-mail n'est encore proposée.
+Cette version **n'envoie pas de message de confirmation** et ne vérifie donc pas que le joueur possède l'adresse fournie. Un joueur peut saisir une adresse qui ne lui appartient pas. Pour une vraie vérification, il faudra ajouter un service d'envoi de mails et un lien de confirmation. Les adresses sont enregistrées en base ; informe les joueurs de cette collecte et respecte les règles de confidentialité applicables. Aucune récupération de mot de passe par e-mail n'est encore proposée.
 
 Les connexions sont contrôlées plus fréquemment et à la fin du décompte. Fermer normalement l'onglet retire le joueur de la file ; en cas de réseau coupé sans fermeture propre, la détection peut prendre quelques secondes. Le serveur n'inclut pas dans le match les connexions qui ne répondent plus au contrôle final.
 
