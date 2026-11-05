@@ -3,6 +3,8 @@
  'use strict';
  const BASE='https://fortressstrikeonline.onrender.com',TOKEN='fs-account-token-v1',OWNER='fs-account-owner-v1',PROFILE='fortressstrike-profile-v1';
  let verified=false,account='',adminCode='',saveTimer=null,pendingProfile=null,saving=false,ui={},gameStarted=false,resolveGame;
+ window.fsAdminActive=false;
+ function setAdmin(active){window.fsAdminActive=active;window.dispatchEvent(new CustomEvent('fs-admin-change',{detail:active}))}
  window.fsGameReady=new Promise(resolve=>{resolveGame=resolve});
  function token(){return localStorage.getItem(TOKEN)||''}
  async function request(path,options={}){
@@ -21,7 +23,7 @@
  window.fsSaveProfile=function(profile){if(!verified)return;pendingProfile=profile;if(ui.save)ui.save.textContent='SAUVEGARDE…';clearTimeout(saveTimer);saveTimer=setTimeout(flush,700)};
  window.fsAccountToken=token;
  window.fsAccountAdminRequest=async function(path,options={}){if(!adminCode)throw new Error('Active d’abord le mode admin.');return request(path,{...options,headers:{...(options.headers||{}),'X-Admin-Code':adminCode}})};
- window.fsAccountAuthError=function(message){verified=false;localStorage.removeItem(TOKEN);if(ui.auth){ui.auth.style.display='flex';ui.error.textContent=message||'Session expirée. Reconnecte-toi.'}if(ui.account)ui.account.style.display='none'};
+ window.fsAccountAuthError=function(message){verified=false;adminCode='';setAdmin(false);localStorage.removeItem(TOKEN);if(ui.auth){ui.auth.style.display='flex';ui.error.textContent=message||'Session expirée. Reconnecte-toi.'}if(ui.account)ui.account.style.display='none'};
  function node(tag,cls,text,parent){const e=document.createElement(tag);if(cls)e.className=cls;if(text)e.textContent=text;if(parent)parent.appendChild(e);return e}
  async function applyAccount(data,newToken){
   const previous=localStorage.getItem(OWNER),local=localStorage.getItem(PROFILE);
@@ -78,8 +80,9 @@
   node('button','fs-auth-button','DÉCONNEXION',ui.account).onclick=async()=>{try{if(pendingProfile)await flush();await request('/api/logout',{method:'POST'})}catch{}localStorage.removeItem(TOKEN);location.reload()};
   ui.admin=node('div','fs-auth-overlay fs-admin-overlay','',document.body);ui.admin.style.display='none';const adm=node('div','fs-auth-card','',ui.admin);node('h2','','MODE ADMIN',adm);node('p','','Le code est défini sur le serveur, jamais dans le jeu.',adm);
   const code=node('input','','',adm);code.type='password';code.placeholder='Code administrateur';code.autocomplete='off';
-  const buttons=node('div','fs-auth-actions','',adm);node('button','fs-auth-button','ACTIVER',buttons).onclick=async()=>{try{const candidate=code.value;await request('/api/admin/verify',{method:'POST',headers:{'X-Admin-Code':candidate}});adminCode=candidate;code.value='';ui.adminError.textContent='Mode admin activé.';ui.adminTools.style.display='block';await refreshUsers()}catch(e){ui.adminError.textContent=e.message}};
-  node('button','fs-auth-button','FERMER',buttons).onclick=()=>{adminCode='';ui.adminTools.style.display='none';ui.admin.style.display='none'};
+  const buttons=node('div','fs-auth-actions','',adm);node('button','fs-auth-button','ACTIVER',buttons).onclick=async()=>{try{const candidate=code.value;await request('/api/admin/verify',{method:'POST',headers:{'X-Admin-Code':candidate}});adminCode=candidate;setAdmin(true);code.value='';ui.adminError.textContent='Mode admin activé · crédits illimités.';ui.adminTools.style.display='block';await refreshUsers()}catch(e){ui.adminError.textContent=e.message}};
+  node('button','fs-auth-button','FERMER',buttons).onclick=()=>{ui.admin.style.display='none'};
+  node('button','fs-auth-button','DÉSACTIVER ADMIN',buttons).onclick=()=>{adminCode='';setAdmin(false);ui.adminTools.style.display='none';ui.adminError.textContent='Mode admin désactivé.'};
   ui.adminError=node('p','fs-auth-error','',adm);ui.adminTools=node('div','','',adm);ui.adminTools.style.display='none';
   node('button','fs-auth-button','DÉBLOQUER TOUTES LES ARMES',ui.adminTools).onclick=async()=>{try{await window.fsAccountAdminRequest('/api/admin/verify',{method:'POST'});await window.fsAdminUnlock();}catch(e){ui.adminError.textContent=e.message}};
   node('p','','Bannir ou débannir un compte :',ui.adminTools);ui.list=node('div','fs-auth-list','',ui.adminTools);

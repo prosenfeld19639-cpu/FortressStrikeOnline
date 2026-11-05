@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer, WebSocket } = require('ws');
 const accounts = require('./auth');
+const anticheat = require('./anticheat');
 const PORT = Number(process.env.PORT) || 3000;
 const WAIT = Math.max(0.1, Number(process.env.MM_SECONDS) || 40) * 1000;
 const html = fs.readFileSync(path.join(__dirname, 'index.html'));
@@ -46,7 +47,7 @@ function broadcastRoom(name) {
 }
 function leaveRoom(c) {
   if (!c.room) return;
-  const name=c.room,members=rooms.get(name); c.room=null;c.rp={};
+  const name=c.room,members=rooms.get(name); c.room=null;c.rp={};c.acPosition=null;c.acHits=null;
   if(members){members.delete(c);if(!members.size)rooms.delete(name);else broadcastRoom(name);}
 }
 function queueStatus(extra) {
@@ -84,6 +85,7 @@ function beginTimer(){
 }
 const reservations=new Map();
 function unqueue(c){pendingConfirm.delete(c);if(queue.delete(c)){if(!queue.size)stopTimer();else queueStatus();}}
+function warn(c){const now=Date.now();if(!c.lastWarning||now-c.lastWarning>10000){c.lastWarning=now;send(c,{t:'ac_warn',message:'Une donnée de jeu incohérente a été ignorée. Si cela se répète, vérifie ta connexion.'})}}
 function receive(c,m){
   if(!m || typeof m!=='object'||Array.isArray(m))return;
   if(m.t==='mm_join'){
@@ -99,10 +101,10 @@ function receive(c,m){
     }
     unqueue(c);leaveRoom(c);c.room=name;c.rp={};if(!rooms.has(name))rooms.set(name,new Set());rooms.get(name).add(c);broadcastRoom(name);return;
   }
-  if(m.t==='rp'){if(c.room){merge(c.rp,m.p);c.rp.n=c.username;broadcastRoom(c.room);}return;}
+  if(m.t==='rp'){if(c.room){if(!anticheat.validPresence(c,m.p)){warn(c);return}merge(c.rp,m.p);c.rp.n=c.username;broadcastRoom(c.room);}return;}
   if(m.t==='ev'){
     if(!c.room||typeof m.e!=='string'||m.e.length>48)return;
-    for(const peer of rooms.get(c.room)||[])send(peer,{t:'ev',e:m.e,d:m.d,peer:c.id});return;
+    const members=rooms.get(c.room)||new Set(),data=anticheat.validEvent(c,m.e,m.d,members);if(data===null){warn(c);return}for(const peer of members)send(peer,{t:'ev',e:m.e,d:data,peer:c.id});return;
   }
   if(m.t==='leave'){leaveRoom(c);send(c,{t:'room',name:null,peers:[]});}
 }
